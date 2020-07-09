@@ -52,6 +52,7 @@ class Venue(db.Model):
     upcoming_shows_count = db.Column(db.Integer, default=0)
     # Create a relationship for Show models
     show = db.relationship('Show', backref='venue', lazy=True)
+    # venues = db.relationship('Show', backref='venue', lazy=True)
 
 
 
@@ -123,8 +124,28 @@ def index():
 def venues():
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue.
-  data=[] # GET VENUES
-  return render_template('pages/venues.html', areas=data)
+  data = Venue.query.all() # GET VENUES
+  dataArr = [] # Organize Venues by city
+  # Create and store keys for each city
+  venuesMaster = {}
+  for obj in data:
+    venuesMaster[obj.city] = obj.city
+  # For each city in venuesMaster dictionary
+  for city in venuesMaster:
+    # Create a dictionary for a city
+    venue = {'venues':[]}
+    # Group cities together
+    res = Venue.query.filter_by(city=city).all()
+    # Create proper values for each dictionary
+    venue['city'] = res[0].city
+    venue['state'] = res[0].state
+    # Now append each dictionary by their proper cities
+    for obj in res:
+      x = {'id':obj.id, 'name': obj.name, 'upcoming_shows_count': obj.upcoming_shows_count}
+      venue['venues'].append(obj)
+    dataArr.append(venue)
+
+  return render_template('pages/venues.html', areas=dataArr)
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
@@ -138,7 +159,11 @@ def search_venues():
 def show_venue(venue_id):
   # shows the venue page with the given venue_id
 
-  data = [] # GET VENUES BY SEARCH QUERY
+  data = Venue.query.filter_by(id=venue_id).one() # GET VENUES BY SEARCH QUERY
+  # Create regular expression for }{" and remove special characters and convert them into a list
+  genres = re.sub(r'[{}"]+', '', data.genres).split(',')
+  # Split the values for genres
+  data.genres = genres
   return render_template('pages/show_venue.html', venue=data)
 
 #  Create Venue
@@ -263,7 +288,7 @@ def create_artist_submission():
     genres = request.form.getlist('genres')
     image_link ='IMAGE LINK EXAMPLE'
     facebook_link = request.form['facebook_link']
-    artist = Artist(name=name, city=city, state=state, phone=phone, genres=genresArr, image_link=image_link, facebook_link=facebook_link)
+    artist = Artist(name=name, city=city, state=state, phone=phone, genres=genres, image_link=image_link, facebook_link=facebook_link)
     db.session.add(artist)
     db.session.commit()
      # on successful db insert, flash success
@@ -288,7 +313,8 @@ def shows():
   # displays list of shows at /shows
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue.
-  data = Show.query.get()
+  data = Show.query.all()
+  print(data,' ****************')
   return render_template('pages/shows.html', shows=data)
 
 @app.route('/shows/create')
