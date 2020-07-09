@@ -149,10 +149,21 @@ def venues():
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
-  # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
+  # TODO: implement search on venues with partial string search. Ensure it is case-insensitive.
   # seach for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-  response={} # GET DICTIONARY RESPONSE
+  data = Venue.query.all()
+  response= {'count':0, 'data': []} # GET DICTIONARY RESPONSE
+  pattern = request.form.get('search_term')
+  for venue in data:
+    if pattern.lower() in venue.name.lower():
+      response['count']+=1
+      venueDict = {}
+      venueDict['id'] = venue.id
+      venueDict['name'] = venue.name
+      venueDict['upcoming_shows_count'] = venue.upcoming_shows_count
+      response['data'].append(venueDict)
+  print(response)
   return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
 
 @app.route('/venues/<int:venue_id>')
