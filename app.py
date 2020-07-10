@@ -235,7 +235,17 @@ def search_artists():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
   # search for "band" should return "The Wild Sax Band".
-  response= [] # GET ARTIST SEARCH
+  data = Artist.query.all()
+  response= {'count':0, 'data': []} # GET DICTIONARY RESPONSE
+  pattern = request.form.get('search_term')
+  for artist in data:
+    if pattern.lower() in artist.name.lower():
+      response['count']+=1
+      artistDict = {}
+      artistDict['id'] = artist.id
+      artistDict['name'] = artist.name
+      artistDict['upcoming_shows_count'] = artist.upcoming_shows_count
+      response['data'].append(artistDict)
   return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
 
 @app.route('/artists/<int:artist_id>')
@@ -324,9 +334,18 @@ def shows():
   # displays list of shows at /shows
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue.
-  data = Show.query.all()
-  print(data,' ****************')
-  return render_template('pages/shows.html', shows=data)
+  shows = Show.query.all()
+  results = []
+  for show in shows:
+    artist = Artist.query.filter_by(id=show.artist_id).one()
+    venue = Venue.query.filter_by(id=show.venue_id).one()
+    showObject = {}
+    showObject['start_time'] = show.start_time
+    showObject['artist_name'] = artist.name
+    showObject['venue_name'] = venue.name
+    results.append(showObject)
+
+  return render_template('pages/shows.html', shows=results)
 
 @app.route('/shows/create')
 def create_shows():
