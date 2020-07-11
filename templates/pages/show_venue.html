@@ -41,6 +41,7 @@
 			<i class="fas fa-moon"></i> Not currently seeking talent
 		</p>
 		{% endif %}
+		<button data-id={{venue.id}} id='venueDeleteBtn' class='warning'>Delete Venue</button>
 	</div>
 	<div class="col-sm-6">
 		<img src="{{ venue.image_link }}" alt="Venue Image" />
@@ -74,6 +75,28 @@
 		{% endfor %}
 	</div>
 </section>
+<script>
+	const deleteBtn = document.getElementById('venueDeleteBtn');
+	deleteBtn.addEventListener('click', function(e) {
+		e.preventDefault();
+		// Create a fetch method to interact with Delete router
+		const {id: dataID} = e.target.dataset;
+		fetch(`/venues/${dataID}`, {
+			method:'DELETE',
+			headers: {
+				'Content-Type' : 'application/json'
+			}
+		})
+		.then(response => response.json())
+		.then(data=>{
+			console.log('Success', data)
+			window.location = '/'
+		})
+		.catch((error)=>{
+			console.log('ERROR', error)
+		})
 
+	});
+</script>
 {% endblock %}
 
