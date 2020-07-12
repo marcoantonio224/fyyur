@@ -1,8 +1,8 @@
-"""Added column seeking_venue in Artist table
+"""empty message
 
-Revision ID: 4891ca93f448
-Revises: 95d6659df237
-Create Date: 2020-07-07 07:43:15.921280
+Revision ID: ea00570ce66b
+Revises: 04715227b762
+Create Date: 2020-07-11 18:25:30.818936
 
 """
 from alembic import op
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '4891ca93f448'
-down_revision = '95d6659df237'
+revision = 'ea00570ce66b'
+down_revision = '04715227b762'
 branch_labels = None
 depends_on = None
 
