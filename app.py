@@ -50,6 +50,7 @@ class Venue(db.Model):
     seeking_description = db.Column(db.String(), nullable=True)
     past_shows_count = db.Column(db.Integer, default=0)
     upcoming_shows_count = db.Column(db.Integer, default=0)
+
     # Create a relationship for Show models
     show = db.relationship('Show', cascade='all, delete-orphan', backref='venue', lazy=True)
     # venues = db.relationship('Show', backref='venue', lazy=True)
@@ -86,7 +87,9 @@ class Show(db.Model):
   id = db.Column(db.Integer, primary_key=True)
   artist_id = db.Column(db.Integer, db.ForeignKey('artists.id'), nullable=False)
   venue_id = db.Column(db.Integer, db.ForeignKey('venues.id'), nullable=False)
-  artist_image_link = db.Column(db.String(120), nullable=False)
+  venue_name = db.Column(db.String(), nullable=False)
+  artist_name = db.Column(db.String(120), nullable=False)
+  artist_image_link = db.Column(db.String(), nullable=False)
   start_time = db.Column(db.String(120), nullable=False)
 
 db.create_all()
@@ -171,9 +174,17 @@ def show_venue(venue_id):
   # shows the venue page with the given venue_id
   data = Venue.query.filter_by(id=venue_id).one() # GET VENUES BY SEARCH QUERY
   # Create regular expression for }{" and remove special characters and convert them into a list
-  genres = re.sub(r'[{}"]+', '', data.genres).split(',')
   # Split the values for genres
+  genres = re.sub(r'[{}"]+', '', data.genres).split(',')
   data.genres = genres
+  # Get all the shows that have the venue's id
+  shows = Show.query.filter_by(venue_id=venue_id).all()
+  # FILTER TIME SHOWS BTWN UPCOMING AND PAST SHOWS
+  data.upcoming_shows = shows
+  data.upcoming_shows_count = len(shows)
+  data.past_shows=[]
+
+
   return render_template('pages/show_venue.html', venue=data)
 
 #  Create Venue
@@ -230,7 +241,7 @@ def delete_venue(venue_id):
     db.session.close()
   # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
   # clicking that button delete it from the db then redirect the user to the homepage
-  return jsonify({"hello":'m'})
+  return jsonify({"message":'successfully deleted'})
 
 
 #  Artists
@@ -354,9 +365,8 @@ def create_artist_submission():
     state = request.form['state']
     phone = request.form['phone']
     genres = request.form.getlist('genres')
-    image_link ='IMAGE LINK EXAMPLE'
     facebook_link = request.form['facebook_link']
-    artist = Artist(name=name, city=city, state=state, phone=phone, genres=genres, image_link=image_link, facebook_link=facebook_link)
+    artist = Artist(name=name, city=city, state=state, phone=phone, genres=genres, facebook_link=facebook_link)
     db.session.add(artist)
     db.session.commit()
      # on successful db insert, flash success
@@ -382,17 +392,28 @@ def shows():
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue.
   shows = Show.query.all()
-  results = []
-  for show in shows:
-    artist = Artist.query.filter_by(id=show.artist_id).one()
-    venue = Venue.query.filter_by(id=show.venue_id).one()
-    showObject = {}
-    showObject['start_time'] = show.start_time
-    showObject['artist_name'] = artist.name
-    showObject['venue_name'] = venue.name
-    results.append(showObject)
+  # results = []
+  # for show in shows:
+  #   artist = Artist.query.filter_by(id=show.artist_id).one()
+  #   venue = Venue.query.filter_by(id=show.venue_id).one()
+  #   showObject = {}
+  #   showObject['start_time'] = show.start_time
+  #   showObject['artist_name'] = artist.name
+  #   showObject['artist_image_link'] = artist.image_link
+  #   showObject['artist_id'] = artist.id
+  #   showObject['venue_id'] = venue.id
+  #   showObject['venue_name'] = venue.name
+  #   results.append(showObject)
 
-  return render_template('pages/shows.html', shows=results)
+  artists = db.session.query(Artist).join(Show, Show.artist_id == Artist.id).all()
+
+  venues = db.session.query(Venue).join(Show,Show.venue_id == Venue.id).all()
+
+  res = (db.session.query(Artist).join(Show).values(Artist.id,Artist.name, Artist.image_link, Show.id, Show.start_time))
+
+
+
+  return render_template('pages/shows.html', shows=shows)
 
 @app.route('/shows/create')
 def create_shows():
@@ -408,13 +429,19 @@ def create_show_submission():
     artist_id = request.form['artist_id']
     venue_id = request.form['venue_id']
     start_time = request.form['start_time']
-    artist_obj = Artist.query.filter_by(id=artist_id).all()
-    # Grab the artist link
-    link = ''
-    for row in artist_obj:
-      link = row.image_link
+
+    artist = Artist.query.filter_by(id=artist_id).one()
+    venue = Venue.query.filter_by(id=venue_id).one()
+
+    #Grab the artist link
+    link = artist.image_link
+    artist_name = artist.name
     artist_image_link = link
-    show = Show(artist_id = artist_id, artist_image_link = artist_image_link, venue_id = venue_id,start_time = start_time)
+    venue_name = venue.name
+
+    show = Show(artist_id = artist_id, artist_image_link = artist_image_link, artist_name= artist_name, venue_id = venue_id,venue_name=venue_name,start_time = start_time)
+
+    # Add show object and commit all changes
     db.session.add(show)
     db.session.commit()
     # on successful db insert, flash success
