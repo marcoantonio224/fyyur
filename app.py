@@ -13,6 +13,7 @@ from logging import Formatter, FileHandler
 from flask_wtf import Form
 from flask_migrate import Migrate
 from forms import *
+import datetime
 import sys
 import re
 #----------------------------------------------------------------------------#
@@ -27,7 +28,7 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 # TODO: connect to a local postgresql database
-
+# Connected loca postgresql database in config.py file
 #----------------------------------------------------------------------------#
 # Models.
 #----------------------------------------------------------------------------#
@@ -54,9 +55,6 @@ class Venue(db.Model):
     # Create a relationship for Show models
     show = db.relationship('Show', cascade='all, delete-orphan', backref='venue', lazy=True)
     # venues = db.relationship('Show', backref='venue', lazy=True)
-
-
-
 
 class Artist(db.Model):
     __tablename__ = 'artists'
@@ -159,8 +157,18 @@ def search_venues():
   data = Venue.query.all()
   response= {'count':0, 'data': []}
   pattern = request.form.get('search_term')
+  # Check to find by venue name
   for venue in data:
     if pattern.lower() in venue.name.lower():
+      response['count']+=1
+      venueDict = {}
+      venueDict['id'] = venue.id
+      venueDict['name'] = venue.name
+      venueDict['upcoming_shows_count'] = venue.upcoming_shows_count
+      response['data'].append(venueDict)
+  # Check to find by venue city or state
+  for venue in data:
+    if pattern.lower() in venue.city.lower():
       response['count']+=1
       venueDict = {}
       venueDict['id'] = venue.id
@@ -179,10 +187,37 @@ def show_venue(venue_id):
   data.genres = genres
   # Get all the shows that have the venue's id
   shows = Show.query.filter_by(venue_id=venue_id).all()
-  # FILTER TIME SHOWS BTWN UPCOMING AND PAST SHOWS
-  data.upcoming_shows = shows
-  data.upcoming_shows_count = len(shows)
-  data.past_shows=[]
+  # Get current date
+  todaysDate = datetime.datetime.now()
+  # Create array for upoming_shows and past_shows
+  upcoming_shows = []
+  past_shows = []
+  # Filter shows based off of dates
+  for show in shows:
+    # Convert a string into a date to calculate the time for upcoming and past show events
+    string_date = show.start_time[0:10]
+    date_time_obj = datetime.datetime.strptime(string_date,'%Y-%m-%d')
+    venue_year = date_time_obj.year
+    venue_month = date_time_obj.month
+    venue_day = date_time_obj.day
+    # Compare the dates and filter them according to dates
+    # If Venue year is greater than today's year
+    if venue_year > todaysDate.year:
+      upcoming_shows.append(show)
+    # Venue year is less than today's year
+    elif venue_year < todaysDate.year:
+      past_shows.append(show)
+    # If venue year equals today's year
+    else:
+      if venue_month < todaysDate.month:
+        past_shows.append(show)
+      else:
+        upcoming_shows.append(show)
+
+  data.upcoming_shows = upcoming_shows
+  data.upcoming_shows_count = len(upcoming_shows)
+  data.past_shows= past_shows
+  data.past_shows_count = len(past_shows)
 
 
   return render_template('pages/show_venue.html', venue=data)
@@ -268,18 +303,71 @@ def search_artists():
       artistDict['name'] = artist.name
       artistDict['upcoming_shows_count'] = artist.upcoming_shows_count
       response['data'].append(artistDict)
+  # Find artist by state
+  for artist in data:
+    if pattern.lower() in artist.city.lower():
+      response['count']+=1
+      artistDict = {}
+      artistDict['id'] = artist.id
+      artistDict['name'] = artist.name
+      artistDict['upcoming_shows_count'] = artist.upcoming_shows_count
+      response['data'].append(artistDict)
   return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
 
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
   # shows the venue page with the given venue_id
   # TODO: replace with real venue data from the venues table, using venue_id
-  data = Artist.query.filter_by(id=artist_id).one() # GET ARTIST BY ID
+  artist = Artist.query.filter_by(id=artist_id).one() # GET ARTIST BY ID
   # Create regular expression for }{" and remove special characters and convert them into a list
-  genres = re.sub(r'[{}"]+', '', data.genres).split(',')
+  genres = re.sub(r'[{}"]+', '', artist.genres).split(',')
   # Split the values for genres
-  data.genres = genres
-  return render_template('pages/show_artist.html', artist=data)
+  artist.genres = genres
+  shows = Show.query.filter_by(artist_id=artist.id).all()
+  venues = []
+  for show in shows:
+    venue = Venue.query.filter_by(id=show.venue_id).one()
+    venueDict = {}
+    venueDict['venue_id'] = venue.id
+    venueDict['venue_image_link'] = venue.image_link
+    venueDict['venue_name'] = venue.name
+    venueDict['start_time'] = show.start_time
+    venues.append(venueDict)
+  print(venues)
+  # FILTER TIME SHOWS BTWN UPCOMING AND PAST SHOWS
+  todaysDate = datetime.datetime.now()
+  # Create array for upoming_shows and past_shows
+  upcoming_shows = []
+  past_shows = []
+  # Filter shows based off of dates
+  for venue in venues:
+    # Convert a string into a date to calculate the time for upcoming and past show events
+    print(venue)
+    string_date = show.start_time[0:10]
+    date_time_obj = datetime.datetime.strptime(string_date,'%Y-%m-%d')
+    venue_year = date_time_obj.year
+    venue_month = date_time_obj.month
+    venue_day = date_time_obj.day
+    # Compare the dates and filter them according to dates
+    # If Venue year is greater than today's year
+    if venue_year > todaysDate.year:
+      upcoming_shows.append(venue)
+    # Venue year is less than today's year
+    elif venue_year < todaysDate.year:
+      past_shows.append(venue)
+    # If venue year equals today's year
+    else:
+      if venue_month < todaysDate.month:
+        past_shows.append(venue)
+      else:
+        upcoming_shows.append(venue)
+
+  artist.upcoming_shows = upcoming_shows
+  artist.upcoming_shows_count = len(upcoming_shows)
+  artist.past_shows= past_shows
+  artist.past_shows_count = len(past_shows)
+
+  return render_template('pages/show_artist.html', artist=artist)
 
 #  Update
 #  ----------------------------------------------------------------
@@ -392,27 +480,6 @@ def shows():
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue.
   shows = Show.query.all()
-  # results = []
-  # for show in shows:
-  #   artist = Artist.query.filter_by(id=show.artist_id).one()
-  #   venue = Venue.query.filter_by(id=show.venue_id).one()
-  #   showObject = {}
-  #   showObject['start_time'] = show.start_time
-  #   showObject['artist_name'] = artist.name
-  #   showObject['artist_image_link'] = artist.image_link
-  #   showObject['artist_id'] = artist.id
-  #   showObject['venue_id'] = venue.id
-  #   showObject['venue_name'] = venue.name
-  #   results.append(showObject)
-
-  artists = db.session.query(Artist).join(Show, Show.artist_id == Artist.id).all()
-
-  venues = db.session.query(Venue).join(Show,Show.venue_id == Venue.id).all()
-
-  res = (db.session.query(Artist).join(Show).values(Artist.id,Artist.name, Artist.image_link, Show.id, Show.start_time))
-
-
-
   return render_template('pages/shows.html', shows=shows)
 
 @app.route('/shows/create')
