@@ -24,6 +24,7 @@ app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
 db = SQLAlchemy(app)
+
 # Create a migrate connection for app
 migrate = Migrate(app, db)
 
@@ -42,7 +43,7 @@ class Venue(db.Model):
     state = db.Column(db.String(120), nullable=False)
     address = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(120), nullable=False)
-    image_link = db.Column(db.String(), nullable=True)
+    image_link = db.Column(db.String(), nullable=False, default='/static/img/default-venue.png')
     facebook_link = db.Column(db.String(), nullable=True)
     genres = db.Column(db.String(500), nullable=False)
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
@@ -66,7 +67,7 @@ class Artist(db.Model):
     phone = db.Column(db.String(120), nullable=False)
     genres = db.Column(db.String(500), nullable=False)
     website = db.Column(db.String(), nullable=True)
-    image_link = db.Column(db.String(), nullable=True)
+    image_link = db.Column(db.String(), nullable=False, server_default='/static/img/default-user-icon.png')
     facebook_link = db.Column(db.String(), nullable=True)
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
     seeking_venue = db.Column(db.BOOLEAN, default=False)
@@ -116,7 +117,14 @@ def handleError():
 
 @app.route('/')
 def index():
-  return render_template('pages/home.html')
+  data={'venues':[],'artists':[]}
+  # Render the venues & artists in a reversed order for latest 10 activities
+  venues = db.session.query(Venue).order_by(Venue.id.desc()).limit(10).all()
+  artists = db.session.query(Artist).order_by(Artist.id.desc()).limit(10).all()
+  data['venues'] = venues
+  data['artists'] = artists
+
+  return render_template('pages/home.html', data = data)
 
 
 #  Venues
@@ -241,9 +249,8 @@ def create_venue_submission():
     state = request.form['state']
     phone = request.form['phone']
     genres = request.form.getlist('genres')
-    image_link =''
     facebook_link = request.form['facebook_link']
-    venue = Venue(name = name, city = city, state=state, address = address, phone = phone, genres = genres, image_link = image_link, facebook_link=facebook_link)
+    venue = Venue(name = name, city = city, state=state, address = address, phone = phone, genres = genres, facebook_link=facebook_link)
     db.session.add(venue)
     db.session.commit()
      # on successful db insert, flash success
@@ -255,8 +262,15 @@ def create_venue_submission():
     handleError()
   finally:
     db.session.close()
+  # Get latest events
+  data={'venues':[],'artists':[]}
+  # Render the venues & artists in a reversed order for latest 10 activities
+  venues = db.session.query(Venue).order_by(Venue.id.desc()).limit(10).all()
+  artists = db.session.query(Artist).order_by(Artist.id.desc()).limit(10).all()
+  data['venues'] = venues
+  data['artists'] = artists
 
-  return render_template('pages/home.html')
+  return render_template('pages/home.html', data=data)
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
@@ -333,7 +347,6 @@ def show_artist(artist_id):
     venueDict['venue_name'] = venue.name
     venueDict['start_time'] = show.start_time
     venues.append(venueDict)
-  print(venues)
   # FILTER TIME SHOWS BTWN UPCOMING AND PAST SHOWS
   todaysDate = datetime.datetime.now()
   # Create array for upoming_shows and past_shows
@@ -342,7 +355,6 @@ def show_artist(artist_id):
   # Filter shows based off of dates
   for venue in venues:
     # Convert a string into a date to calculate the time for upcoming and past show events
-    print(venue)
     string_date = show.start_time[0:10]
     date_time_obj = datetime.datetime.strptime(string_date,'%Y-%m-%d')
     venue_year = date_time_obj.year
@@ -468,7 +480,15 @@ def create_artist_submission():
   finally:
     db.session.close()
 
-  return render_template('pages/home.html')
+  # Get latest events
+  data={'venues':[],'artists':[]}
+  # Render the venues & artists in a reversed order for latest 10 activities
+  venues = db.session.query(Venue).order_by(Venue.id.desc()).limit(10).all()
+  artists = db.session.query(Artist).order_by(Artist.id.desc()).limit(10).all()
+  data['venues'] = venues
+  data['artists'] = artists
+
+  return render_template('pages/home.html', data=data)
 
 
 #  Shows
@@ -521,7 +541,15 @@ def create_show_submission():
   finally:
     db.session.close()
   # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-  return render_template('pages/home.html')
+  # Get latest events
+  data={'venues':[],'artists':[]}
+  # Render the venues & artists in a reversed order for latest 10 activities
+  venues = db.session.query(Venue).order_by(Venue.id.desc()).limit(10).all()
+  artists = db.session.query(Artist).order_by(Artist.id.desc()).limit(10).all()
+  data['venues'] = venues
+  data['artists'] = artists
+
+  return render_template('pages/home.html', data=data)
 
 @app.errorhandler(404)
 def not_found_error(error):
